@@ -42,7 +42,7 @@ textarea,input,button{font-family:inherit}button{touch-action:manipulation}
 .pdf-image-card{height:438px;border:1px solid #DDE4EB;border-radius:16px;background:#F7F9FB;display:flex;align-items:center;justify-content:center;padding:18px;margin-bottom:20px;overflow:hidden;box-shadow:0 5px 16px rgba(23,32,51,.045)}
 .pdf-image{width:100%;height:100%;object-fit:contain;display:block}
 .pdf-image-placeholder{height:438px;border:1px dashed #C9D2DC;border-radius:16px;background:#F7F9FB;color:#7A8694;display:flex;align-items:center;justify-content:center;margin-bottom:20px;font-size:15px}
-.pdf-description{border-left:4px solid #F47A18;background:#F6F8FA;border-radius:0 14px 14px 0;padding:18px 20px;font-size:17px;line-height:1.72;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;flex:0 0 auto}
+.pdf-description{border-left:4px solid #F47A18;background:#F6F8FA;border-radius:0 14px 14px 0;padding:18px 20px;font-size:17px;line-height:1.72;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;color:#2C3645!important;opacity:1;flex:0 0 auto}.pdf-continuation .pdf-image-card,.pdf-continuation .pdf-image-placeholder{display:none}.pdf-continuation .pdf-description{min-height:760px}.pdf-continuation .pdf-step-head{margin-bottom:20px}
 .pdf-desc-label{font-size:11px;font-weight:800;letter-spacing:1px;color:#173B67;margin-bottom:7px}
 .pdf-desc-text{color:#2C3645}
 .pdf-footer{margin-top:auto;padding-top:15px;border-top:1px solid #E8EDF2;display:flex;justify-content:space-between;font-size:9px;line-height:1.4;color:#8792A0;letter-spacing:.25px}
@@ -174,23 +174,25 @@ textarea,input,button{font-family:inherit}button{touch-action:manipulation}
 </div></div></div>
 
 <div id="pdf-export-container" :class="{active:pdfMode}">
-<div v-for="(slide,index) in slides" :key="'pdf-'+slide.id" class="pdf-page">
-  <div class="pdf-step-head">
-    <div class="pdf-step-badge">{{String(index+1).padStart(2,'0')}}</div>
-    <div>
-      <div class="pdf-kicker">PRODUCT TRAINING</div>
-      <h2 class="pdf-title">步驟 {{index+1}}</h2>
+<div v-for="(slide,index) in slides" :key="'pdf-group-'+slide.id">
+  <div v-for="(chunk,ci) in pdfTextChunks(slide)" :key="'pdf-'+slide.id+'-'+ci" class="pdf-page" :class="{ 'pdf-continuation': ci>0 }">
+    <div class="pdf-step-head">
+      <div class="pdf-step-badge">{{String(index+1).padStart(2,'0')}}</div>
+      <div>
+        <div class="pdf-kicker">PRODUCT TRAINING</div>
+        <h2 class="pdf-title">步驟 {{index+1}}{{ci>0?'（續）':''}}</h2>
+      </div>
     </div>
-  </div>
-  <div v-if="slide.image" class="pdf-image-card"><img :src="slide.image" class="pdf-image"></div>
-  <div v-else class="pdf-image-placeholder">此步驟未提供圖片</div>
-  <div class="pdf-description">
-    <div class="pdf-desc-label">步驟說明</div>
-    <div class="pdf-desc-text">{{slide.description||'(無文字說明)'}}</div>
-  </div>
-  <div class="pdf-footer">
-    <span>VECTECH｜產品教育訓練</span>
-    <span>{{String(index+1).padStart(2,'0')}} / {{String(documentPageCount()).padStart(2,'0')}}</span>
+    <div v-if="ci===0 && slide.image" class="pdf-image-card"><img :src="slide.image" class="pdf-image"></div>
+    <div v-else-if="ci===0" class="pdf-image-placeholder">此步驟未提供圖片</div>
+    <div class="pdf-description">
+      <div class="pdf-desc-label">步驟說明</div>
+      <div class="pdf-desc-text">{{chunk}}</div>
+    </div>
+    <div class="pdf-footer">
+      <span>VECTECH｜產品教育訓練</span>
+      <span>{{String(contentPageNumber(index,ci)).padStart(2,'0')}} / {{String(documentPageCount()).padStart(2,'0')}}</span>
+    </div>
   </div>
 </div>
 </div>
@@ -333,30 +335,67 @@ async load(item){try{this.trainingTitle=item.title||'';this.exportFileName=item.
 async removeRecord(id){if(!confirm('確定刪除這份雲端紀錄？'))return;await deleteDoc(doc(db,'users',this.userId,'trainings',id));if(this.currentId===id)this.currentId=null},
 formatDate(t){return t?new Date(t).toLocaleString('zh-TW'):'未知時間'},
 fileName(ext){return(this.exportFileName.trim()||this.trainingTitle.trim()||'產品教育訓練').replace(/[\\/:*?"<>|]/g,'_')+'.'+ext},
-slideChunkCount(slide){return this.chunkExportText(slide?.description||'(無文字說明)',10,30).length},
-documentPageCount(){return this.slides.reduce((n,s)=>n+this.slideChunkCount(s),0)},
+wrapExportText(text,maxChars=30){
+const source=String(text||'');
+return source.split(/\n/).map(line=>{
+if(!line)return '';
+let out='',count=0;
+for(const ch of line){
+const unit=/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/.test(ch)?1:0.6;
+if(count+unit>maxChars&&out){out+='\n';count=0}
+out+=ch;count+=unit;
+}
+return out;
+}).join('\n')
+},
+chunkExportText(text,maxLines=8,maxChars=30){
+const wrapped=this.wrapExportText(text,maxChars).split('\n');
+const chunks=[];let buf=[];
+for(const line of wrapped){
+buf.push(line);
+if(buf.length>=maxLines){chunks.push(buf.join('\n'));buf=[]}
+}
+if(buf.length||!chunks.length)chunks.push(buf.join('\n'));
+return chunks
+},
+pdfTextChunks(slide){
+return this.chunkExportText(slide?.description||'(無文字說明)',8,30)
+},
+slideChunkCount(slide){
+return this.pdfTextChunks(slide).length
+},
+documentPageCount(){
+return this.slides.reduce((n,s)=>n+this.slideChunkCount(s),0)
+},
+contentPageNumber(index,chunkIndex=0){
+let page=1;
+for(let i=0;i<index;i++)page+=this.slideChunkCount(this.slides[i]);
+return page+chunkIndex
+},
 async exportPDF(){
-this.busy=true;this.busyText='正在產生企業版 A4 PDF（統一字體與版型）...';this.pdfMode=true;await this.$nextTick();
+this.busy=true;this.busyText='正在產生企業版 A4 PDF（統一字體與自動換行）...';this.pdfMode=true;await this.$nextTick();
 try{
 const root=document.getElementById('pdf-export-container');
 const pages=[...root.querySelectorAll('.pdf-page')];
 pages.forEach(p=>{p.style.height='auto';p.style.minHeight='1123px';p.style.overflow='visible'});
-await new Promise(r=>setTimeout(r,120));
-await html2pdf().set({margin:0,filename:this.fileName('pdf'),image:{type:'jpeg',quality:.97},html2canvas:{scale:2,useCORS:true,letterRendering:true},pagebreak:{mode:['css','legacy']},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(root).save();
+if(document.fonts?.ready)try{await document.fonts.ready}catch{}
+await new Promise(r=>setTimeout(r,180));
+await html2pdf().set({margin:0,filename:this.fileName('pdf'),image:{type:'jpeg',quality:.97},html2canvas:{scale:2,useCORS:true,letterRendering:true,backgroundColor:'#FFFFFF'},pagebreak:{mode:['css','legacy']},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(root).save();
 }catch(e){console.error(e);alert('PDF 匯出失敗：'+(e?.message||e))}finally{this.pdfMode=false;this.busy=false}
+}
 },
 async imageContain(data,maxW,maxH){return await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const r=Math.min(maxW/img.naturalWidth,maxH/img.naturalHeight);resolve({w:img.naturalWidth*r,h:img.naturalHeight*r})};img.onerror=reject;img.src=data})},
 wrapExportText(text,maxChars=30){const source=String(text||'');return source.split(/\n/).map(line=>{if(!line)return '';let out='',count=0;for(const ch of line){const unit=/[\u0000-\u00ff]/.test(ch)?0.55:1;if(count+unit>maxChars&&out){out+='\n';count=0}out+=ch;count+=unit}return out}).join('\n')},
 chunkExportText(text,maxLines=10,maxChars=30){const wrapped=this.wrapExportText(text,maxChars).split('\n');const chunks=[];let buf=[];for(const line of wrapped){buf.push(line);if(buf.length>=maxLines){chunks.push(buf.join('\n'));buf=[]}}if(buf.length||!chunks.length)chunks.push(buf.join('\n'));return chunks},
 async exportPPT(){
-this.busy=true;this.busyText='正在產生企業版 PowerPoint（統一字體與版型）...';
+this.busy=true;this.busyText='正在產生企業版 PowerPoint（統一字體與自動換行）...';
 try{
 const ppt=new PptxGenJS();ppt.layout='LAYOUT_16x9';ppt.author='VECTECH';ppt.subject='產品教育訓練教材';ppt.company='VECTECH';ppt.lang='zh-TW';
 const FONT='Microsoft JhengHei',NAVY='173B67',ORANGE='F47A18',TEXT='2C3645',MUTED='7A8694',LINE='DDE4EB',PANEL='F6F8FA';
 let pageNo=1;const totalPages=this.documentPageCount();
 for(let i=0;i<this.slides.length;i++){
 const x=this.slides[i],rawDesc=x.description||'(無文字說明)';
-const chunks=this.chunkExportText(rawDesc,10,30);
+const chunks=this.chunkExportText(rawDesc,8,30);
 for(let ci=0;ci<chunks.length;ci++){
 const isFirst=ci===0;
 const s=ppt.addSlide();s.background={color:'FFFFFF'};
@@ -371,11 +410,11 @@ const z=await this.imageContain(x.image,11.35,3.35);
 s.addShape(ppt.ShapeType.rect,{x:.58,y:1.62,w:11.48,h:3.55,fill:{color:'F7F9FB'},line:{color:LINE,width:1}});
 s.addImage({data:x.image,x:.65+(11.48-z.w)/2,y:1.68+(3.39-z.h)/2,w:z.w,h:z.h});
 }
-const descY=isFirst?5.45:1.72,descH=isFirst?1.42:5.22;
+const descY=isFirst?5.38:1.72,descH=isFirst?1.53:5.30;
 s.addShape(ppt.ShapeType.rect,{x:.58,y:descY,w:11.48,h:descH,fill:{color:PANEL},line:{color:'E1E7ED',width:1}});
 s.addShape(ppt.ShapeType.rect,{x:.58,y:descY,w:.07,h:descH,fill:{color:ORANGE},line:{color:ORANGE}});
-s.addText('步驟說明',{x:.84,y:descY+.20,w:2.2,h:.20,fontFace:FONT,fontSize:11,bold:true,color:NAVY,charSpacing:1,margin:0});
-s.addText(chunks[ci],{x:.84,y:descY+.55,w:10.88,h:descH-.73,fontFace:FONT,fontSize:isFirst?17:18,color:TEXT,valign:'top',margin:.04,fit:'shrink',breakLine:false,paraSpaceAfterPt:6});
+s.addText('步驟說明',{x:.84,y:descY+.18,w:2.2,h:.20,fontFace:FONT,fontSize:11,bold:true,color:NAVY,charSpacing:1,margin:0});
+s.addText(chunks[ci],{x:.84,y:descY+.48,w:10.88,h:descH-.62,fontFace:FONT,fontSize:isFirst?16:17,color:TEXT,valign:'top',margin:.02,breakLine:false,paraSpaceAfterPt:4,fit:'resize'});
 s.addText('VECTECH｜產品教育訓練',{x:.58,y:7.10,w:5,h:.16,fontFace:FONT,fontSize:8,color:MUTED,margin:0});
 s.addText(String(pageNo).padStart(2,'0')+' / '+String(totalPages).padStart(2,'0'),{x:10.75,y:7.10,w:1.31,h:.16,fontFace:FONT,fontSize:8,color:MUTED,align:'right',margin:0});
 pageNo++;
