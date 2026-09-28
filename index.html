@@ -24,7 +24,12 @@ textarea,input,button{font-family:inherit}button{touch-action:manipulation}
 .card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;box-shadow:0 2px 10px rgba(0,0,0,.04)}
 #pdf-export-container{display:none}
 #pdf-export-container.active{display:block;position:fixed;left:-100000px;top:0;width:794px;background:#fff}
-.pdf-page{width:794px;min-height:1123px;page-break-after:always;padding:54px;background:#fff}
+.pdf-page{width:794px;height:1123px;page-break-after:always;padding:46px 52px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
+.pdf-title{font-size:30px;font-weight:700;line-height:1.25}
+.pdf-image{width:100%;max-height:410px;object-fit:contain;display:block;flex:0 0 auto}
+.pdf-description{font-size:19px;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;flex:1;min-height:0;overflow:hidden}
+.description-editor{min-height:190px;line-height:1.75}
+@media(max-width:767px){.description-editor{min-height:220px;font-size:16px;line-height:1.8;padding:14px}.pdf-page{padding:36px 42px}}
 @media(min-width:768px){.mobile-only{display:none}}
 </style>
 </head>
@@ -82,7 +87,7 @@ textarea,input,button{font-family:inherit}button{touch-action:manipulation}
 </div>
 <div>
 <div class="text-sm font-semibold text-gray-600 mb-2">文字說明</div>
-<textarea v-model="slide.description" class="w-full min-h-[190px] rounded-2xl border bg-gray-50 p-4 text-base leading-7 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500" placeholder="請輸入此步驟的詳細說明..."></textarea>
+<textarea v-model="slide.description" @input="autoResize($event)" ref="descInputs" class="description-editor w-full rounded-2xl border bg-gray-50 p-4 text-base leading-7 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 overflow-hidden resize-none" placeholder="請輸入此步驟的詳細說明..."></textarea>
 </div>
 </div>
 <button @click="addAfter(index)" class="w-full mt-4 py-2.5 rounded-xl border border-dashed text-blue-600 hover:bg-blue-50 text-sm"><i class="fa-solid fa-plus mr-1"></i>在此新增步驟</button>
@@ -118,9 +123,10 @@ textarea,input,button{font-family:inherit}button{touch-action:manipulation}
 <p class="text-sm text-gray-400 mt-auto">產生日期：{{new Date().toLocaleDateString('zh-TW')}}</p>
 </div>
 <div v-for="(slide,index) in slides" :key="'pdf-'+slide.id" class="pdf-page">
-<div class="flex items-center gap-4 border-b pb-5 mb-7"><span class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center text-2xl font-bold">{{index+1}}</span><h2 class="text-3xl font-bold">步驟說明</h2></div>
-<div v-if="slide.image" class="h-[500px] rounded-2xl bg-gray-50 flex items-center justify-center p-5 mb-7"><img :src="slide.image" class="max-w-full max-h-full object-contain"></div>
-<div class="text-xl leading-9 whitespace-pre-wrap bg-blue-50 p-7 rounded-2xl min-h-[200px]">{{slide.description||'(無文字說明)'}}</div>
+<div class="flex items-center gap-4 border-b pb-4 mb-5 shrink-0"><span class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center text-2xl font-bold">{{index+1}}</span><h2 class="pdf-title">步驟說明</h2></div>
+<div v-if="slide.image" class="rounded-2xl bg-gray-50 flex items-center justify-center p-4 mb-5 shrink-0" style="height:410px"><img :src="slide.image" class="pdf-image"></div>
+<div v-else class="mb-5 shrink-0" style="height:20px"></div>
+<div class="pdf-description bg-blue-50 p-6 rounded-2xl">{{slide.description||'(無文字說明)'}}</div>
 </div>
 </div>
 </div>
@@ -179,11 +185,21 @@ alert('✅ 已匯入 '+out.length+' 個步驟，圖片比例與文字均已保�
 }catch(err){console.error(err);alert('匯入PPT失敗：'+(err?.message||err))}finally{this.busy=false;e.target.value=''}
 },
 async saveToCloud(){if(!db||!this.userId)return alert('尚未設定 Firebase 雲端功能。');this.saving=true;try{const payload={title:this.trainingTitle,fileName:this.exportFileName,slides:this.slides,updatedAt:Date.now()};if(JSON.stringify(payload).length>950000)throw new Error('教材過大，請減少圖片數量。');if(this.currentId)await updateDoc(doc(db,'users',this.userId,'trainings',this.currentId),payload);else{const d=await addDoc(collection(db,'users',this.userId,'trainings'),payload);this.currentId=d.id}alert('✅ 已儲存至雲端')}catch(e){alert('儲存失敗：'+e.message)}finally{this.saving=false}},
-load(item){this.trainingTitle=item.title||'';this.exportFileName=item.fileName||'';this.slides=JSON.parse(JSON.stringify(item.slides||[]));if(!this.slides.length)this.slides=[this.blank()];this.currentId=item.id;this.showHistory=false},
+autoResize(e){const el=e?.target;if(!el)return;el.style.height='auto';el.style.height=Math.max(190,el.scrollHeight)+'px'},
+load(item){this.trainingTitle=item.title||'';this.exportFileName=item.fileName||'';this.slides=JSON.parse(JSON.stringify(item.slides||[]));if(!this.slides.length)this.slides=[this.blank()];this.currentId=item.id;this.showHistory=false;this.$nextTick(()=>document.querySelectorAll('.description-editor').forEach(el=>{el.style.height='auto';el.style.height=Math.max(190,el.scrollHeight)+'px'}))},
 async removeRecord(id){if(!confirm('確定刪除這份雲端紀錄？'))return;await deleteDoc(doc(db,'users',this.userId,'trainings',id));if(this.currentId===id)this.currentId=null},
 formatDate(t){return t?new Date(t).toLocaleString('zh-TW'):'未知時間'},
 fileName(ext){return(this.exportFileName.trim()||this.trainingTitle.trim()||'產品教育訓練').replace(/[\\/:*?"<>|]/g,'_')+'.'+ext},
-async exportPDF(){this.busy=true;this.busyText='正在產生 A4 PDF...';this.pdfMode=true;await this.$nextTick();try{await html2pdf().set({margin:0,filename:this.fileName('pdf'),image:{type:'jpeg',quality:.96},html2canvas:{scale:2,useCORS:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(document.getElementById('pdf-export-container')).save()}catch(e){alert('PDF 匯出失敗：'+e.message)}finally{this.pdfMode=false;this.busy=false}},
+async exportPDF(){
+this.busy=true;this.busyText='正在產生 A4 PDF（完整顯示圖片與文字）...';this.pdfMode=true;await this.$nextTick();
+try{
+const root=document.getElementById('pdf-export-container');
+const pages=[...root.querySelectorAll('.pdf-page')];
+pages.forEach(p=>{p.style.height='1123px';p.style.overflow='hidden'});
+await new Promise(r=>setTimeout(r,120));
+await html2pdf().set({margin:0,filename:this.fileName('pdf'),image:{type:'jpeg',quality:.97},html2canvas:{scale:2,useCORS:true,letterRendering:true},pagebreak:{mode:['css','legacy']},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(root).save();
+}catch(e){console.error(e);alert('PDF 匯出失敗：'+(e?.message||e))}finally{this.pdfMode=false;this.busy=false}
+},
 async imageContain(data,maxW,maxH){return await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const r=Math.min(maxW/img.naturalWidth,maxH/img.naturalHeight);resolve({w:img.naturalWidth*r,h:img.naturalHeight*r})};img.onerror=reject;img.src=data})},
 async exportPPT(){
 this.busy=true;this.busyText='正在產生 PowerPoint（保持圖片比例並顯示完整說明）...';
@@ -197,8 +213,10 @@ const x=this.slides[i];s=ppt.addSlide();
 s.addText('步驟 '+(i+1)+'：說明',{x:.55,y:.45,w:12,h:.5,fontSize:25,bold:true,color:'1F2937'});
 let imgY=1.18,imgMaxW=11.7,imgMaxH=3.85,imgW=0,imgH=0;
 if(x.image){const z=await this.imageContain(x.image,imgMaxW,imgMaxH);imgW=z.w;imgH=z.h;s.addImage({data:x.image,x:.8+(imgMaxW-imgW)/2,y:imgY,w:imgW,h:imgH});}
-const descY=Math.max(5.25,imgY+imgH+.28),descH=Math.max(1.2,7.0-descY);
-s.addText(x.description||'(無文字說明)',{x:.8,y:descY,w:11.7,h:descH,fontSize:18,color:'374151',valign:'top',margin:.16,fit:'shrink',fill:{color:'F3F4F6'},line:{color:'E5E7EB',width:1}});
+const descY=Math.max(5.15,imgY+imgH+.25),descH=Math.max(1.45,7.0-descY);
+const rawDesc=x.description||'(無文字說明)';
+const fs=rawDesc.length>420?13:rawDesc.length>280?15:rawDesc.length>170?17:19;
+s.addText(rawDesc,{x:.8,y:descY,w:11.7,h:descH,fontSize:fs,color:'374151',valign:'top',margin:.16,breakLine:false,fit:'shrink',paraSpaceAfterPt:6,fill:{color:'F3F4F6'},line:{color:'E5E7EB',width:1}});
 }
 await ppt.writeFile({fileName:this.fileName('pptx')});
 }catch(e){console.error(e);alert('PPT 匯出失敗：'+(e?.message||e))}finally{this.busy=false}
