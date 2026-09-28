@@ -411,7 +411,7 @@ const descY=isFirst?5.22:1.72,descH=isFirst?1.68:5.30;
 s.addShape(ppt.ShapeType.rect,{x:.58,y:descY,w:11.48,h:descH,fill:{color:PANEL},line:{color:'E1E7ED',width:1}});
 s.addShape(ppt.ShapeType.rect,{x:.58,y:descY,w:.07,h:descH,fill:{color:ORANGE},line:{color:ORANGE}});
 s.addText('步驟說明',{x:.84,y:descY+.16,w:2.2,h:.20,fontFace:FONT,fontSize:11,bold:true,color:NAVY,charSpacing:1,margin:0});
-s.addText(chunks[ci],{x:.84,y:descY+.46,w:10.88,h:(isFirst?1.12:4.70),fontFace:FONT,fontSize:16,color:TEXT,valign:'top',margin:0.04,fit:'shrink',breakLine:false,paraSpaceAfterPt:4,breakLine:false});
+s.addText(chunks[ci],{x:.84,y:descY+.46,w:10.88,h:(isFirst?1.12:4.70),fontFace:FONT,fontSize:16,color:TEXT,valign:'top',margin:0.04,fit:'shrink',breakLine:false,paraSpaceAfterPt:4});
 s.addText('VECTECH｜產品教育訓練',{x:.58,y:7.10,w:5,h:.16,fontFace:FONT,fontSize:8,color:MUTED,margin:0});
 s.addText(String(pageNo).padStart(2,'0')+' / '+String(totalPages).padStart(2,'0'),{x:10.75,y:7.10,w:1.31,h:.16,fontFace:FONT,fontSize:8,color:MUTED,align:'right',margin:0});
 pageNo++;
