@@ -159,7 +159,7 @@ try{
 const zip=await JSZip.loadAsync(file),parser=new DOMParser();
 const names=Object.keys(zip.files).filter(n=>/^ppt\/slides\/slide\d+\.xml$/.test(n)).sort((a,b)=>+a.match(/slide(\d+)\.xml/)[1]-+b.match(/slide(\d+)\.xml/)[1]);
 if(!names.length)throw new Error('找不到投影片資料');
-const resolvePath=(base,target)=>{const a=(base.split('/').slice(0,-1).join('/')+'/'+target).split('/'),o=[];for(const p of a){if(!p||p==='. ')continue;if(p==='..')o.pop();else o.push(p)}return o.join('/')};
+const resolvePath=(base,target)=>{const a=(base.split('/').slice(0,-1).join('/')+'/'+target).split('/'),o=[];for(const p of a){if(!p||p==='.')continue;if(p==='..')o.pop();else o.push(p)}return o.join('/')};
 const getData=async path=>{const f=zip.file(path);if(!f)return null;const b=await f.async('uint8array');let bin='';for(let i=0;i<b.length;i+=32768)bin+=String.fromCharCode(...b.subarray(i,i+32768));const ext=(path.split('.').pop()||'png').toLowerCase();const mime=ext==='jpg'||ext==='jpeg'?'image/jpeg':ext==='webp'?'image/webp':'image/png';return 'data:'+mime+';base64,'+btoa(bin)};
 const out=[];let title='';
 for(let si=0;si<names.length;si++){
