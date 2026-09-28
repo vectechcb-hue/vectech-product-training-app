@@ -51,6 +51,7 @@ textarea,input,button{font-family:inherit}button{touch-action:manipulation}
 </div>
 <div class="flex gap-2 shrink-0">
 <button @click="showHistory=true" class="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600" title="雲端紀錄"><i class="fa-solid fa-folder-open"></i></button>
+<button @click="handleGoogleAuth" :disabled="authLoading" class="sm:hidden col-span-2 w-full py-3 rounded-xl bg-blue-600 text-white font-bold text-base"><i class="fa-brands fa-google mr-2"></i>{{authUser&&!authUser.isAnonymous?'Google 已登入':'Google 登入'}}</button>
 <button @click="showFirebaseSetup=true" class="w-11 h-11 rounded-xl" :class="firebaseConfigured?'bg-green-50 text-green-600':'bg-amber-50 text-amber-600'" title="Firebase 設定"><i class="fa-solid fa-cloud"></i></button>
 <button @click="handleGoogleAuth" :disabled="authLoading" class="w-11 h-11 rounded-xl" :class="authUser&&!authUser.isAnonymous?'bg-blue-50 text-blue-600':'bg-gray-100 text-gray-500'" :title="authUser&&!authUser.isAnonymous?'Google 帳號已登入':'登入 Google'"><i class="fa-brands fa-google"></i></button>
 </div>
