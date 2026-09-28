@@ -180,8 +180,20 @@ import {initializeApp} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-
 import {getAuth,signInAnonymously,onAuthStateChanged,GoogleAuthProvider,signInWithPopup,linkWithPopup,signOut} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {getFirestore,collection,addDoc,updateDoc,deleteDoc,doc,onSnapshot} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-let firebaseConfig={};
-try{firebaseConfig=window.VECTECH_FIREBASE_CONFIG||JSON.parse(localStorage.getItem('vectech_firebase_config')||'{}')||{}}catch(e){firebaseConfig=window.VECTECH_FIREBASE_CONFIG||{}}
+const DEFAULT_FIREBASE_CONFIG={
+  apiKey:"AIzaSyAnp4hgOsmWXCZMrxxigueSsVGYZu-ablE",
+  authDomain:"vectech-training.firebaseapp.com",
+  projectId:"vectech-training",
+  storageBucket:"vectech-training.firebasestorage.app",
+  messagingSenderId:"22943049223",
+  appId:"1:22943049223:web:73f1c143769e9e094aeca2",
+  measurementId:"G-345DMK3LS9"
+};
+let firebaseConfig=DEFAULT_FIREBASE_CONFIG;
+try{
+  const saved=JSON.parse(localStorage.getItem('vectech_firebase_config')||'null');
+  if(saved?.projectId==="vectech-training") firebaseConfig=saved;
+}catch(e){firebaseConfig=DEFAULT_FIREBASE_CONFIG}
 
 let db=null,auth=null;
 try{if(Object.keys(firebaseConfig).length){const app=initializeApp(firebaseConfig);db=getFirestore(app);auth=getAuth(app);}}catch(e){console.warn(e)}
