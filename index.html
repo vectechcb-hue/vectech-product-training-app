@@ -213,7 +213,7 @@ try{
 let db=null,auth=null;
 try{if(Object.keys(firebaseConfig).length){const app=initializeApp(firebaseConfig);db=getFirestore(app);auth=getAuth(app);}}catch(e){console.warn(e)}
 
-const APP_VERSION="v1.13.0";
+const APP_VERSION="v1.13.1";
 const {createApp}=Vue;
 createApp({
 data(){return{APP_VERSION,trainingTitle:'新產品教育訓練指南',exportFileName:'',slides:[this.blank()],busy:false,busyText:'',pdfMode:false,showHistory:false,showFirebaseSetup:false,firebaseConfigured:Object.keys(firebaseConfig).length>0,firebaseConfigText:Object.keys(firebaseConfig).length?JSON.stringify(firebaseConfig,null,2):'',previewing:false,previewItem:null,saving:false,records:[],userId:null,authUser:null,authLoading:false,currentId:null,unsubscribe:null}},
