@@ -26,7 +26,7 @@
 textarea,input,button{font-family:inherit}button{touch-action:manipulation}
 .card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;box-shadow:0 2px 10px rgba(0,0,0,.04)}
 #pdf-export-container{display:none}
-#pdf-export-container.active{display:block;position:fixed;left:-10000px;top:0;width:794px;background:#fff;font-family:"Microsoft JhengHei","PingFang TC",Arial,sans-serif}
+#pdf-export-container.active{display:block;position:fixed;left:-10000px;top:0;width:794px;background:#fff;font-family:"Microsoft JhengHei","PingFang TC",Arial,sans-serif;z-index:-1;opacity:1}
 .pdf-page{width:794px;height:1123px;min-height:1123px;page-break-after:always;padding:52px 58px 42px;background:#fff;overflow:hidden;display:flex;flex-direction:column;position:relative;break-inside:avoid}
 .pdf-step-head{display:flex;align-items:center;gap:15px;padding-bottom:16px;margin-bottom:22px;border-bottom:1px solid #DDE4EB}
 .pdf-step-badge{width:52px;height:52px;border-radius:14px;background:#173B67;color:#fff;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:800;flex:0 0 auto}
@@ -213,7 +213,7 @@ try{
 let db=null,auth=null;
 try{if(Object.keys(firebaseConfig).length){const app=initializeApp(firebaseConfig);db=getFirestore(app);auth=getAuth(app);}}catch(e){console.warn(e)}
 
-const APP_VERSION="v1.13.1";
+const APP_VERSION="v1.13.2";
 const {createApp}=Vue;
 createApp({
 data(){return{APP_VERSION,trainingTitle:'新產品教育訓練指南',exportFileName:'',slides:[this.blank()],busy:false,busyText:'',pdfMode:false,showHistory:false,showFirebaseSetup:false,firebaseConfigured:Object.keys(firebaseConfig).length>0,firebaseConfigText:Object.keys(firebaseConfig).length?JSON.stringify(firebaseConfig,null,2):'',previewing:false,previewItem:null,saving:false,records:[],userId:null,authUser:null,authLoading:false,currentId:null,unsubscribe:null}},
