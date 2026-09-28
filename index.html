@@ -52,7 +52,7 @@ textarea,input,button{font-family:inherit}button{touch-action:manipulation}
 <div class="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow"><i class="fa-solid fa-graduation-cap text-lg"></i></div>
 <div class="min-w-0 flex-1">
 <input v-model="trainingTitle" class="w-full text-lg sm:text-2xl font-bold outline-none bg-transparent" placeholder="輸入教材標題">
-<div class="text-xs text-gray-400 mt-0.5">產品教育訓練教材產生器</div>
+<div class="flex items-center gap-2 mt-0.5"><div class="text-xs text-gray-400">產品教育訓練教材產生器</div><span class="inline-flex items-center rounded-full bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 text-[10px] font-bold tracking-wide">版本 {{APP_VERSION}}</span></div>
 </div>
 <div class="flex gap-2 shrink-0">
 <button @click="showHistory=true" class="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600" title="雲端紀錄"><i class="fa-solid fa-folder-open"></i></button>
@@ -213,9 +213,10 @@ try{
 let db=null,auth=null;
 try{if(Object.keys(firebaseConfig).length){const app=initializeApp(firebaseConfig);db=getFirestore(app);auth=getAuth(app);}}catch(e){console.warn(e)}
 
+const APP_VERSION="v1.13.0";
 const {createApp}=Vue;
 createApp({
-data(){return{trainingTitle:'新產品教育訓練指南',exportFileName:'',slides:[this.blank()],busy:false,busyText:'',pdfMode:false,showHistory:false,showFirebaseSetup:false,firebaseConfigured:Object.keys(firebaseConfig).length>0,firebaseConfigText:Object.keys(firebaseConfig).length?JSON.stringify(firebaseConfig,null,2):'',previewing:false,previewItem:null,saving:false,records:[],userId:null,authUser:null,authLoading:false,currentId:null,unsubscribe:null}},
+data(){return{APP_VERSION,trainingTitle:'新產品教育訓練指南',exportFileName:'',slides:[this.blank()],busy:false,busyText:'',pdfMode:false,showHistory:false,showFirebaseSetup:false,firebaseConfigured:Object.keys(firebaseConfig).length>0,firebaseConfigText:Object.keys(firebaseConfig).length?JSON.stringify(firebaseConfig,null,2):'',previewing:false,previewItem:null,saving:false,records:[],userId:null,authUser:null,authLoading:false,currentId:null,unsubscribe:null}},
 async mounted(){if(auth){this.unsubscribeAuth=onAuthStateChanged(auth,user=>{this.authUser=user||null;this.userId=user?.uid||null;if(this.unsubscribe){this.unsubscribe();this.unsubscribe=null}if(this.userId)this.listen()});try{if(!auth.currentUser)await signInAnonymously(auth)}catch(e){console.warn('Firebase Auth',e)}}if('serviceWorker'in navigator)navigator.serviceWorker.register('./service-worker.js').catch(console.warn)},
 beforeUnmount(){if(this.unsubscribe)this.unsubscribe();if(this.unsubscribeAuth)this.unsubscribeAuth()},
 methods:{
