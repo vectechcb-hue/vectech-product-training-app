@@ -52,6 +52,7 @@ textarea,input,button{font-family:inherit}button{touch-action:manipulation}
 <div class="flex gap-2 shrink-0">
 <button @click="showHistory=true" class="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600" title="雲端紀錄"><i class="fa-solid fa-folder-open"></i></button>
 <button @click="showFirebaseSetup=true" class="w-11 h-11 rounded-xl" :class="firebaseConfigured?'bg-green-50 text-green-600':'bg-amber-50 text-amber-600'" title="Firebase 設定"><i class="fa-solid fa-cloud"></i></button>
+<button @click="handleGoogleAuth" :disabled="authLoading" class="w-11 h-11 rounded-xl" :class="authUser&&!authUser.isAnonymous?'bg-blue-50 text-blue-600':'bg-gray-100 text-gray-500'" :title="authUser&&!authUser.isAnonymous?'Google 帳號已登入':'登入 Google'"><i class="fa-brands fa-google"></i></button>
 </div>
 </div>
 <div class="grid grid-cols-2 sm:flex gap-2 mt-3">
@@ -128,6 +129,16 @@ textarea,input,button{font-family:inherit}button{touch-action:manipulation}
 <div class="bg-white w-full sm:max-w-2xl sm:rounded-2xl rounded-t-3xl max-h-[90vh] flex flex-col">
 <div class="p-4 border-b flex justify-between items-center"><div><div class="font-bold text-lg"><i class="fa-solid fa-cloud mr-2" :class="firebaseConfigured?'text-green-600':'text-amber-600'"></i>Firebase 雲端設定</div><div class="text-xs text-gray-400 mt-1">{{firebaseConfigured?'目前已儲存 Firebase 設定':'尚未設定 Firebase'}}</div></div><button @click="showFirebaseSetup=false" class="w-10 h-10"><i class="fa-solid fa-xmark text-xl"></i></button></div>
 <div class="overflow-auto p-5">
+<div class="mb-4 p-4 rounded-2xl border bg-gray-50">
+<div class="font-semibold text-gray-800"><i class="fa-solid fa-user-shield mr-2 text-blue-600"></i>登入狀態</div>
+<div class="text-sm text-gray-600 mt-2" v-if="authUser&&!authUser.isAnonymous">Google：{{authUser.email||authUser.displayName||'已登入'}}</div>
+<div class="text-sm text-gray-500 mt-2" v-else-if="authUser">目前為匿名登入，只適合暫存本機／單一裝置工作。</div>
+<div class="text-sm text-red-500 mt-2" v-else>尚未登入 Firebase。</div>
+<div class="flex gap-2 mt-3">
+<button v-if="authUser&&!authUser.isAnonymous" @click="logoutGoogle" class="flex-1 py-2.5 rounded-xl bg-gray-200 text-gray-700 text-sm">登出 Google</button>
+<button v-else @click="handleGoogleAuth" :disabled="authLoading" class="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold"><i class="fa-brands fa-google mr-1"></i>{{authLoading?'登入中…':'使用 Google 登入並保存雲端教材'}}</button>
+</div>
+</div>
 <div class="p-4 rounded-2xl bg-amber-50 border border-amber-100 text-sm leading-6 text-gray-700 mb-4">
 請從 Firebase Console → 專案設定 → 您的應用程式 → Web App 複製 <b>firebaseConfig</b>，完整貼到下面。此 App 會將設定儲存在本機瀏覽器，儲存後重新載入即可連線。
 </div>
@@ -166,7 +177,7 @@ textarea,input,button{font-family:inherit}button{touch-action:manipulation}
 
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import {getAuth,signInAnonymously,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import {getAuth,signInAnonymously,onAuthStateChanged,GoogleAuthProvider,signInWithPopup,linkWithPopup,signOut} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {getFirestore,collection,addDoc,updateDoc,deleteDoc,doc,onSnapshot} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 let firebaseConfig={};
@@ -177,12 +188,35 @@ try{if(Object.keys(firebaseConfig).length){const app=initializeApp(firebaseConfi
 
 const {createApp}=Vue;
 createApp({
-data(){return{trainingTitle:'新產品教育訓練指南',exportFileName:'',slides:[this.blank()],busy:false,busyText:'',pdfMode:false,showHistory:false,showFirebaseSetup:false,firebaseConfigured:Object.keys(firebaseConfig).length>0,firebaseConfigText:Object.keys(firebaseConfig).length?JSON.stringify(firebaseConfig,null,2):'',previewing:false,previewItem:null,saving:false,records:[],userId:null,currentId:null,unsubscribe:null}},
-async mounted(){if(auth){try{await signInAnonymously(auth);this.userId=auth.currentUser?.uid;this.listen()}catch(e){console.warn('Firebase Auth',e)}}if('serviceWorker'in navigator)navigator.serviceWorker.register('./service-worker.js').catch(console.warn)},
-beforeUnmount(){if(this.unsubscribe)this.unsubscribe()},
+data(){return{trainingTitle:'新產品教育訓練指南',exportFileName:'',slides:[this.blank()],busy:false,busyText:'',pdfMode:false,showHistory:false,showFirebaseSetup:false,firebaseConfigured:Object.keys(firebaseConfig).length>0,firebaseConfigText:Object.keys(firebaseConfig).length?JSON.stringify(firebaseConfig,null,2):'',previewing:false,previewItem:null,saving:false,records:[],userId:null,authUser:null,authLoading:false,currentId:null,unsubscribe:null}},
+async mounted(){if(auth){this.unsubscribeAuth=onAuthStateChanged(auth,user=>{this.authUser=user||null;this.userId=user?.uid||null;if(this.unsubscribe){this.unsubscribe();this.unsubscribe=null}if(this.userId)this.listen()});try{if(!auth.currentUser)await signInAnonymously(auth)}catch(e){console.warn('Firebase Auth',e)}}if('serviceWorker'in navigator)navigator.serviceWorker.register('./service-worker.js').catch(console.warn)},
+beforeUnmount(){if(this.unsubscribe)this.unsubscribe();if(this.unsubscribeAuth)this.unsubscribeAuth()},
 methods:{
 blank(){return{id:crypto.randomUUID(),image:null,description:'',sourceFileName:'',sourceType:'',sourcePage:null}},
-listen(){if(!db||!this.userId)return;this.unsubscribe=onSnapshot(collection(db,'users',this.userId,'trainings'),s=>{this.records=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))})},
+listen(){if(!db||!this.userId)return;this.unsubscribe=onSnapshot(collection(db,'users',this.userId,'trainings'),s=>{this.records=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))},e=>{console.warn('Firestore listener',e);this.records=[]})},
+async handleGoogleAuth(){
+if(!auth){this.showFirebaseSetup=true;return}
+if(this.authLoading)return;
+this.authLoading=true;
+try{
+const provider=new GoogleAuthProvider();
+provider.setCustomParameters({prompt:'select_account'});
+if(auth.currentUser?.isAnonymous){
+await linkWithPopup(auth.currentUser,provider);
+alert('✅ Google 帳號已連結。之後可在其他裝置登入同一帳號，繼續使用雲端教材。');
+}else{
+await signInWithPopup(auth,provider);
+alert('✅ Google 登入成功。');
+}
+}catch(e){
+console.error(e);
+if(e?.code==='auth/popup-closed-by-user')alert('登入視窗已關閉，尚未完成登入。');
+else if(e?.code==='auth/popup-blocked')alert('瀏覽器封鎖了登入視窗，請允許此網站開啟彈出視窗後再試。');
+else if(e?.code==='auth/credential-already-in-use')alert('這個 Google 帳號已經有另一個 Firebase 帳號。為避免覆蓋既有雲端資料，目前不自動合併，請先使用原本的 Google 帳號登入。');
+else alert('Google 登入失敗：'+(e?.code||e?.message||e));
+}finally{this.authLoading=false}
+},
+async logoutGoogle(){if(!auth)return;if(!confirm('確定登出 Google？登出後 App 會改用匿名登入。'))return;try{await signOut(auth);await signInAnonymously(auth)}catch(e){alert('登出失敗：'+(e?.message||e))}},
 saveFirebaseConfig(){try{const cfg=JSON.parse(this.firebaseConfigText);if(!cfg.apiKey||!cfg.authDomain||!cfg.projectId||!cfg.appId)throw new Error('缺少必要欄位：apiKey、authDomain、projectId、appId');localStorage.setItem('vectech_firebase_config',JSON.stringify(cfg));alert('✅ Firebase 設定已儲存，App 將重新載入並建立雲端連線。');location.reload()}catch(e){alert('Firebase 設定格式錯誤：'+e.message)}},
 clearFirebaseConfig(){if(confirm('確定清除本機 Firebase 設定？')){localStorage.removeItem('vectech_firebase_config');location.reload()}},
 newTraining(){if(confirm('確定建立新教材？未儲存的變更將會遺失。')){this.trainingTitle='新產品教育訓練指南';this.exportFileName='';this.slides=[this.blank()];this.currentId=null}},
