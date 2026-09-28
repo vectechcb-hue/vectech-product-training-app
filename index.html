@@ -355,11 +355,9 @@ return chunks
 },
 pdfTextChunks(slide){
 const lines=this.wrapExportText(slide?.description||'(無文字說明)',26).split('\n');
-const first=lines.slice(0,3).join('\n');
-const rest=[];
-if(first||!lines.length)rest.push(first);
-for(let i=3;i<lines.length;i+=10)rest.push(lines.slice(i,i+10).join('\n'));
-return rest;
+const chunks=[];
+for(let i=0;i<lines.length;i+=10)chunks.push(lines.slice(i,i+10).join('\n'));
+return chunks.length?chunks:['(無文字說明)'];
 },
 slideChunkCount(slide){return this.pdfTextChunks(slide).length},
 documentPageCount(){return this.slides.reduce((n,s)=>n+this.slideChunkCount(s),0)},
@@ -369,7 +367,7 @@ for(let i=0;i<index;i++)page+=this.slideChunkCount(this.slides[i]);
 return page+chunkIndex
 },
 async exportPDF(){
-this.busy=true;this.busyText='正在產生企業版 A4 PDF（自動換行與文字防溢出）...';this.pdfMode=true;await this.$nextTick();
+this.busy=true;this.busyText='正在產生企業版 A4 PDF（安全版面＋自動換行＋單頁完整內容）...';this.pdfMode=true;await this.$nextTick();
 try{
 const root=document.getElementById('pdf-export-container');
 root.style.left='0px';
@@ -383,7 +381,7 @@ await html2pdf().set({margin:0,filename:this.fileName('pdf'),image:{type:'jpeg',
 },
 async imageContain(data,maxW,maxH){return await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const r=Math.min(maxW/img.naturalWidth,maxH/img.naturalHeight);resolve({w:img.naturalWidth*r,h:img.naturalHeight*r})};img.onerror=reject;img.src=data})},
 async exportPPT(){
-this.busy=true;this.busyText='正在產生 PowerPoint（安全版面＋自動換行）...';
+this.busy=true;this.busyText='正在產生 PowerPoint（安全版面＋自動換行＋單頁完整內容）...';
 try{
 const ppt=new PptxGenJS();ppt.layout='LAYOUT_16x9';ppt.author='VECTECH';ppt.subject='產品教育訓練教材';ppt.company='VECTECH';ppt.lang='zh-TW';
 const NAVY='173B67',ORANGE='F47A18',TEXT='2C3645',MUTED='7A8694',LINE='DDE4EB',PANEL='F6F8FA';
