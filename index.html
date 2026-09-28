@@ -44,7 +44,9 @@ textarea,input,button{font-family:inherit}button{touch-action:manipulation}
 <input v-model="exportFileName" class="col-span-2 sm:w-64 px-3 py-2.5 rounded-xl border bg-gray-50 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="自訂匯出檔名（選填）">
 <button @click="saveToCloud" :disabled="saving" class="px-3 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold disabled:opacity-50"><i class="fa-solid fa-cloud-arrow-up mr-1"></i>{{saving?'儲存中':'儲存'}}</button>
 <button @click="exportPDF" class="px-3 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold"><i class="fa-solid fa-file-pdf mr-1"></i>PDF</button>
+<button @click="importPPT" class="px-3 py-2.5 rounded-xl bg-green-600 text-white text-sm font-semibold"><i class="fa-solid fa-file-import mr-1"></i>匯入PPT</button>
 <button @click="exportPPT" class="px-3 py-2.5 rounded-xl bg-orange-500 text-white text-sm font-semibold"><i class="fa-solid fa-file-powerpoint mr-1"></i>PPT</button>
+<input id="ppt-import" type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" class="hidden" @change="handlePPTImport">
 </div>
 </div>
 </header>
@@ -150,13 +152,57 @@ compress(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.
 async uploadImage(e,i){const f=e.target.files?.[0];if(!f)return;this.busy=true;this.busyText='正在處理圖片...';try{this.slides[i].image=await this.compress(f)}finally{this.busy=false;e.target.value=''}},
 batchUpload(){document.getElementById('batch').click()},
 async batchImages(e){const fs=[...e.target.files];if(!fs.length)return;this.busy=true;this.busyText='正在處理圖片...';try{if(this.slides.length===1&&!this.slides[0].image&&!this.slides[0].description)this.slides=[];for(const f of fs)this.slides.push({id:crypto.randomUUID(),image:await this.compress(f),description:''})}finally{this.busy=false;e.target.value=''}},
+async importPPT(){document.getElementById('ppt-import').click()},
+async handlePPTImport(e){
+const file=e.target.files?.[0];if(!file)return;this.busy=true;this.busyText='正在讀取 PowerPoint，保留圖片比例與文字...';
+try{
+const zip=await JSZip.loadAsync(file),parser=new DOMParser();
+const names=Object.keys(zip.files).filter(n=>/^ppt\/slides\/slide\d+\.xml$/.test(n)).sort((a,b)=>+a.match(/slide(\d+)\.xml/)[1]-+b.match(/slide(\d+)\.xml/)[1]);
+if(!names.length)throw new Error('找不到投影片資料');
+const resolvePath=(base,target)=>{const a=(base.split('/').slice(0,-1).join('/')+'/'+target).split('/'),o=[];for(const p of a){if(!p||p==='. ')continue;if(p==='..')o.pop();else o.push(p)}return o.join('/')};
+const getData=async path=>{const f=zip.file(path);if(!f)return null;const b=await f.async('uint8array');let bin='';for(let i=0;i<b.length;i+=32768)bin+=String.fromCharCode(...b.subarray(i,i+32768));const ext=(path.split('.').pop()||'png').toLowerCase();const mime=ext==='jpg'||ext==='jpeg'?'image/jpeg':ext==='webp'?'image/webp':'image/png';return 'data:'+mime+';base64,'+btoa(bin)};
+const out=[];let title='';
+for(let si=0;si<names.length;si++){
+const sp=names[si],xml=parser.parseFromString(await zip.file(sp).async('text'),'application/xml');
+const texts=[...xml.getElementsByTagNameNS('http://schemas.openxmlformats.org/drawingml/2006/main','t')].map(x=>x.textContent.trim()).filter(Boolean);
+if(si===0&&!texts[0]?.startsWith('步驟'))title=texts.join(' ');
+if(!texts.some(t=>t.startsWith('步驟')))continue;
+const rp='ppt/slides/_rels/'+sp.split('/').pop()+'.rels',rx=zip.file(rp)?parser.parseFromString(await zip.file(rp).async('text'),'application/xml'):null,rels={};
+if(rx)for(const r of [...rx.getElementsByTagName('Relationship')])rels[r.getAttribute('Id')]=r.getAttribute('Target');
+const blip=xml.getElementsByTagNameNS('http://schemas.openxmlformats.org/drawingml/2006/main','blip')[0];let image=null;
+if(blip){const rid=blip.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','embed')||blip.getAttribute('r:embed'),target=rels[rid];if(target)image=await getData(resolvePath(sp,target))}
+out.push({id:crypto.randomUUID(),image,description:texts.filter(t=>!t.startsWith('步驟')).join('\n').trim()});
+}
+if(!out.length)throw new Error('這份PPT沒有可匯入的步驟頁面');
+this.trainingTitle=title||file.name.replace(/\.pptx$/i,'');this.exportFileName=file.name.replace(/\.pptx$/i,'');this.slides=out;this.currentId=null;this.showHistory=false;
+alert('✅ 已匯入 '+out.length+' 個步驟，圖片比例與文字均已保留。');
+}catch(err){console.error(err);alert('匯入PPT失敗：'+(err?.message||err))}finally{this.busy=false;e.target.value=''}
+},
 async saveToCloud(){if(!db||!this.userId)return alert('尚未設定 Firebase 雲端功能。');this.saving=true;try{const payload={title:this.trainingTitle,fileName:this.exportFileName,slides:this.slides,updatedAt:Date.now()};if(JSON.stringify(payload).length>950000)throw new Error('教材過大，請減少圖片數量。');if(this.currentId)await updateDoc(doc(db,'users',this.userId,'trainings',this.currentId),payload);else{const d=await addDoc(collection(db,'users',this.userId,'trainings'),payload);this.currentId=d.id}alert('✅ 已儲存至雲端')}catch(e){alert('儲存失敗：'+e.message)}finally{this.saving=false}},
 load(item){this.trainingTitle=item.title||'';this.exportFileName=item.fileName||'';this.slides=JSON.parse(JSON.stringify(item.slides||[]));if(!this.slides.length)this.slides=[this.blank()];this.currentId=item.id;this.showHistory=false},
 async removeRecord(id){if(!confirm('確定刪除這份雲端紀錄？'))return;await deleteDoc(doc(db,'users',this.userId,'trainings',id));if(this.currentId===id)this.currentId=null},
 formatDate(t){return t?new Date(t).toLocaleString('zh-TW'):'未知時間'},
 fileName(ext){return(this.exportFileName.trim()||this.trainingTitle.trim()||'產品教育訓練').replace(/[\\/:*?"<>|]/g,'_')+'.'+ext},
 async exportPDF(){this.busy=true;this.busyText='正在產生 A4 PDF...';this.pdfMode=true;await this.$nextTick();try{await html2pdf().set({margin:0,filename:this.fileName('pdf'),image:{type:'jpeg',quality:.96},html2canvas:{scale:2,useCORS:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(document.getElementById('pdf-export-container')).save()}catch(e){alert('PDF 匯出失敗：'+e.message)}finally{this.pdfMode=false;this.busy=false}},
-async exportPPT(){this.busy=true;this.busyText='正在產生 PowerPoint...';try{const ppt=new PptxGenJS();ppt.layout='LAYOUT_16x9';let s=ppt.addSlide();s.background={color:'F8FAFC'};s.addText(this.trainingTitle||'產品教育訓練',{x:1,y:2.4,w:11.3,h:1.1,fontSize:36,bold:true,color:'1F2937',align:'center'});s.addText('產品教育訓練教材',{x:1,y:3.8,w:11.3,h:.5,fontSize:22,color:'64748B',align:'center'});this.slides.forEach((x,i)=>{s=ppt.addSlide();s.addText('步驟 '+(i+1)+'：說明',{x:.55,y:.55,w:12,h:.5,fontSize:25,bold:true,color:'1F2937'});if(x.image)s.addImage({data:x.image,x:.8,y:1.35,w:11.7,h:4.2,sizing:{type:'contain'}});s.addText(x.description||'(無文字說明)',{x:.8,y:x.image?5.75:1.6,w:11.7,h:x.image?1.1:4.8,fontSize:18,color:'374151',breakLine:false,fit:'shrink',valign:'top',margin:.12,fill:{color:'F3F4F6'}})});await ppt.writeFile({fileName:this.fileName('pptx')})}catch(e){alert('PPT 匯出失敗：'+e.message)}finally{this.busy=false}}
+async imageContain(data,maxW,maxH){return await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const r=Math.min(maxW/img.naturalWidth,maxH/img.naturalHeight);resolve({w:img.naturalWidth*r,h:img.naturalHeight*r})};img.onerror=reject;img.src=data})},
+async exportPPT(){
+this.busy=true;this.busyText='正在產生 PowerPoint（保持圖片比例並顯示完整說明）...';
+try{
+const ppt=new PptxGenJS();ppt.layout='LAYOUT_16x9';
+let s=ppt.addSlide();s.background={color:'F8FAFC'};
+s.addText(this.trainingTitle||'產品教育訓練',{x:1,y:2.4,w:11.3,h:1.1,fontSize:36,bold:true,color:'1F2937',align:'center'});
+s.addText('產品教育訓練教材',{x:1,y:3.8,w:11.3,h:.5,fontSize:22,color:'64748B',align:'center'});
+for(let i=0;i<this.slides.length;i++){
+const x=this.slides[i];s=ppt.addSlide();
+s.addText('步驟 '+(i+1)+'：說明',{x:.55,y:.45,w:12,h:.5,fontSize:25,bold:true,color:'1F2937'});
+let imgY=1.18,imgMaxW=11.7,imgMaxH=3.85,imgW=0,imgH=0;
+if(x.image){const z=await this.imageContain(x.image,imgMaxW,imgMaxH);imgW=z.w;imgH=z.h;s.addImage({data:x.image,x:.8+(imgMaxW-imgW)/2,y:imgY,w:imgW,h:imgH});}
+const descY=Math.max(5.25,imgY+imgH+.28),descH=Math.max(1.2,7.0-descY);
+s.addText(x.description||'(無文字說明)',{x:.8,y:descY,w:11.7,h:descH,fontSize:18,color:'374151',valign:'top',margin:.16,fit:'shrink',fill:{color:'F3F4F6'},line:{color:'E5E7EB',width:1}});
+}
+await ppt.writeFile({fileName:this.fileName('pptx')});
+}catch(e){console.error(e);alert('PPT 匯出失敗：'+(e?.message||e))}finally{this.busy=false}
+}
 }
 }).mount('#app');
 </script>
