@@ -213,7 +213,7 @@ try{
 let db=null,auth=null;
 try{if(Object.keys(firebaseConfig).length){const app=initializeApp(firebaseConfig);db=getFirestore(app);auth=getAuth(app);}}catch(e){console.warn(e)}
 
-const APP_VERSION="v1.13.2";
+const APP_VERSION="v1.13.3";
 const {createApp}=Vue;
 createApp({
 data(){return{APP_VERSION,trainingTitle:'新產品教育訓練指南',exportFileName:'',slides:[this.blank()],busy:false,busyText:'',pdfMode:false,showHistory:false,showFirebaseSetup:false,firebaseConfigured:Object.keys(firebaseConfig).length>0,firebaseConfigText:Object.keys(firebaseConfig).length?JSON.stringify(firebaseConfig,null,2):'',previewing:false,previewItem:null,saving:false,records:[],userId:null,authUser:null,authLoading:false,currentId:null,unsubscribe:null}},
@@ -381,13 +381,13 @@ await html2pdf().set({margin:0,filename:this.fileName('pdf'),image:{type:'jpeg',
 },
 async imageContain(data,maxW,maxH){return await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const r=Math.min(maxW/img.naturalWidth,maxH/img.naturalHeight);resolve({w:img.naturalWidth*r,h:img.naturalHeight*r})};img.onerror=reject;img.src=data})},
 async exportPPT(){
-this.busy=true;this.busyText='正在產生 PowerPoint（安全版面＋自動換行＋單頁完整內容）...';
+this.busy=true;this.busyText='正在產生 PowerPoint（左圖右文安全版面＋自動換行）...';
 try{
 const ppt=new PptxGenJS();ppt.layout='LAYOUT_16x9';ppt.author='VECTECH';ppt.subject='產品教育訓練教材';ppt.company='VECTECH';ppt.lang='zh-TW';
 const NAVY='173B67',ORANGE='F47A18',TEXT='2C3645',MUTED='7A8694',LINE='DDE4EB',PANEL='F6F8FA';
 let pageNo=1;const totalPages=this.documentPageCount();
 for(let i=0;i<this.slides.length;i++){
-const x=this.slides[i],chunks=this.chunkTextLines(x.description||'(無文字說明)',3,24);
+const x=this.slides[i],chunks=this.chunkTextLines(x.description||'(無文字說明)',6,28);
 for(let ci=0;ci<chunks.length;ci++){
 const isFirst=ci===0,s=ppt.addSlide();s.background={color:'FFFFFF'};
 s.addShape(ppt.ShapeType.rect,{x:0,y:0,w:.10,h:7.5,fill:{color:ORANGE},line:{color:ORANGE}});
@@ -396,16 +396,22 @@ s.addText(String(i+1).padStart(2,'0'),{x:.46,y:.56,w:.62,h:.23,fontFace:'Arial',
 s.addText('PRODUCT TRAINING',{x:1.27,y:.46,w:3.3,h:.20,fontFace:'Arial',fontSize:9,bold:true,color:ORANGE,charSpacing:2,margin:0});
 s.addText('步驟 '+(i+1)+(ci>0?'（續）':''),{x:1.27,y:.78,w:10.4,h:.42,fontFace:'Microsoft JhengHei',fontSize:23,bold:true,color:NAVY,margin:0,fit:'shrink'});
 s.addShape(ppt.ShapeType.line,{x:.46,y:1.30,w:12.0,h:0,line:{color:LINE,width:1}});
+
 if(isFirst&&x.image){
-const z=await this.imageContain(x.image,11.10,2.95);
-s.addShape(ppt.ShapeType.rect,{x:.58,y:1.60,w:11.48,h:3.28,fill:{color:'F7F9FB'},line:{color:LINE,width:1}});
-s.addImage({data:x.image,x:.77+(11.10-z.w)/2,y:1.75+(2.95-z.h)/2,w:z.w,h:z.h});
+s.addShape(ppt.ShapeType.rect,{x:.58,y:1.60,w:6.55,h:4.95,fill:{color:'F7F9FB'},line:{color:LINE,width:1}});
+const z=await this.imageContain(x.image,6.10,4.50);
+s.addImage({data:x.image,x:.80+(6.10-z.w)/2,y:1.82+(4.50-z.h)/2,w:z.w,h:z.h});
+}else if(isFirst){
+s.addShape(ppt.ShapeType.rect,{x:.58,y:1.60,w:6.55,h:4.95,fill:{color:'F7F9FB'},line:{color:LINE,width:1}});
+s.addText('此步驟未提供圖片',{x:.85,y:3.75,w:5.95,h:.30,fontFace:'Microsoft JhengHei',fontSize:14,color:MUTED,align:'center',margin:0});
 }
-const descY=isFirst?5.10:1.60,descH=isFirst?1.76:5.40;
-s.addShape(ppt.ShapeType.rect,{x:.58,y:descY,w:11.48,h:descH,fill:{color:PANEL},line:{color:'E1E7ED',width:1}});
-s.addShape(ppt.ShapeType.rect,{x:.58,y:descY,w:.07,h:descH,fill:{color:ORANGE},line:{color:ORANGE}});
-s.addText('步驟說明',{x:.84,y:descY+.15,w:2.2,h:.20,fontFace:'Microsoft JhengHei',fontSize:11,bold:true,color:NAVY,margin:0});
-s.addText(chunks[ci],{x:.84,y:descY+.44,w:10.55,h:descH-.55,fontFace:'Microsoft JhengHei',fontSize:15,color:TEXT,valign:'top',margin:0});
+
+const tx=7.42,ty=1.60,tw=5.10,th=4.95;
+s.addShape(ppt.ShapeType.rect,{x:tx,y:ty,w:tw,h:th,fill:{color:PANEL},line:{color:'E1E7ED',width:1}});
+s.addShape(ppt.ShapeType.rect,{x:tx,y:ty,w:.07,h:th,fill:{color:ORANGE},line:{color:ORANGE}});
+s.addText('步驟說明',{x:tx+.28,y:ty+.18,w:2.2,h:.22,fontFace:'Microsoft JhengHei',fontSize:11,bold:true,color:NAVY,margin:0});
+s.addText(chunks[ci],{x:tx+.28,y:ty+.58,w:tw-.55,h:th-.78,fontFace:'Microsoft JhengHei',fontSize:16,color:TEXT,valign:'top',margin:0,breakLine:false,fit:'shrink'});
+
 s.addText('VECTECH｜產品教育訓練',{x:.58,y:7.09,w:5,h:.16,fontFace:'Arial',fontSize:8,color:MUTED,margin:0});
 s.addText(String(pageNo).padStart(2,'0')+' / '+String(totalPages).padStart(2,'0'),{x:10.75,y:7.09,w:1.31,h:.16,fontFace:'Arial',fontSize:8,color:MUTED,align:'right',margin:0});
 pageNo++;
