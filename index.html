@@ -42,9 +42,9 @@ textarea,input,button{font-family:inherit}button{touch-action:manipulation}
 .pdf-image-card{height:438px;border:1px solid #DDE4EB;border-radius:16px;background:#F7F9FB;display:flex;align-items:center;justify-content:center;padding:18px;margin-bottom:20px;overflow:hidden;box-shadow:0 5px 16px rgba(23,32,51,.045)}
 .pdf-image{width:100%;height:100%;object-fit:contain;display:block}
 .pdf-image-placeholder{height:438px;border:1px dashed #C9D2DC;border-radius:16px;background:#F7F9FB;color:#7A8694;display:flex;align-items:center;justify-content:center;margin-bottom:20px;font-size:15px}
-.pdf-description{border-left:4px solid #F47A18;background:#F6F8FA;border-radius:0 14px 14px 0;padding:18px 20px;font-size:17px;line-height:1.72;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;color:#2C3645!important;opacity:1;flex:0 0 auto}.pdf-continuation .pdf-image-card,.pdf-continuation .pdf-image-placeholder{display:none}.pdf-continuation .pdf-description{min-height:760px}.pdf-continuation .pdf-step-head{margin-bottom:20px}
+.pdf-description{border-left:4px solid #F47A18;background:#F6F8FA;border-radius:0 14px 14px 0;padding:18px 20px;font-size:17px;line-height:1.72;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;color:#2C3645!important;opacity:1;display:block;min-height:120px;flex:0 0 auto;position:relative;z-index:2}.pdf-continuation .pdf-image-card,.pdf-continuation .pdf-image-placeholder{display:none}.pdf-continuation .pdf-description{min-height:760px;display:block}.pdf-continuation .pdf-step-head{margin-bottom:20px}
 .pdf-desc-label{font-size:11px;font-weight:800;letter-spacing:1px;color:#173B67;margin-bottom:7px}
-.pdf-desc-text{color:#2C3645}
+.pdf-desc-text{display:block;color:#2C3645!important;font-size:17px!important;line-height:1.72!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important;word-break:break-word!important;font-weight:400!important}
 .pdf-footer{margin-top:auto;padding-top:15px;border-top:1px solid #E8EDF2;display:flex;justify-content:space-between;font-size:9px;line-height:1.4;color:#8792A0;letter-spacing:.25px}
 .description-editor{min-height:190px;line-height:1.75}
 @media(max-width:767px){.description-editor{min-height:220px;font-size:16px;line-height:1.8;padding:14px}.pdf-page{padding:40px 42px 36px}}
@@ -348,7 +348,7 @@ out+=ch;count+=unit;
 return out;
 }).join('\n')
 },
-chunkTextLines(text,maxLines=4,maxChars=30){
+chunkTextLines(text,maxLines=4,maxChars=28){
 const wrapped=this.wrapExportText(text,maxChars).split('\n');
 const chunks=[];let buf=[];
 for(const line of wrapped){
@@ -376,6 +376,7 @@ async exportPDF(){
 this.busy=true;this.busyText='正在產生企業版 A4 PDF（自動換行與文字防溢出）...';this.pdfMode=true;await this.$nextTick();
 try{
 const root=document.getElementById('pdf-export-container');
+await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
 const pages=[...root.querySelectorAll('.pdf-page')];
 pages.forEach(p=>{p.style.height='1123px';p.style.minHeight='1123px';p.style.overflow='hidden'});
 if(document.fonts?.ready)try{await document.fonts.ready}catch{}
@@ -410,7 +411,7 @@ const descY=isFirst?5.22:1.72,descH=isFirst?1.68:5.30;
 s.addShape(ppt.ShapeType.rect,{x:.58,y:descY,w:11.48,h:descH,fill:{color:PANEL},line:{color:'E1E7ED',width:1}});
 s.addShape(ppt.ShapeType.rect,{x:.58,y:descY,w:.07,h:descH,fill:{color:ORANGE},line:{color:ORANGE}});
 s.addText('步驟說明',{x:.84,y:descY+.16,w:2.2,h:.20,fontFace:FONT,fontSize:11,bold:true,color:NAVY,charSpacing:1,margin:0});
-s.addText(chunks[ci],{x:.84,y:descY+.46,w:10.88,h:(isFirst?1.08:4.65),fontFace:FONT,fontSize:16,color:TEXT,valign:'top',margin:.02,breakLine:false,paraSpaceAfterPt:4});
+s.addText(chunks[ci],{x:.84,y:descY+.46,w:10.88,h:(isFirst?1.12:4.70),fontFace:FONT,fontSize:16,color:TEXT,valign:'top',margin:0.04,breakLine:false,paraSpaceAfterPt:4});
 s.addText('VECTECH｜產品教育訓練',{x:.58,y:7.10,w:5,h:.16,fontFace:FONT,fontSize:8,color:MUTED,margin:0});
 s.addText(String(pageNo).padStart(2,'0')+' / '+String(totalPages).padStart(2,'0'),{x:10.75,y:7.10,w:1.31,h:.16,fontFace:FONT,fontSize:8,color:MUTED,align:'right',margin:0});
 pageNo++;
